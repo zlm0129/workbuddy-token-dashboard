@@ -1,0 +1,18 @@
+# 本地真实数据（绝不入库）
+.wb_usage_cache.json
+.wb_usage_cache.json.bak
+.wb_usage_archive.json
+.wb_usage_archive.json.bak
+*.log
+
+# 生成的看板与发布副本（含真实用量，运行后本地生成）
+WB用量看板.html
+WB用量看板_v2.html
+wb_monitor_site/
+token_workbench.html
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

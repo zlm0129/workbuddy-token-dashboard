@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkBuddy Token 工作台</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1420;--panel:#171e2e;--panel2:#1f293e;--ink:#e8edf6;--sub:#9fb0c8;
+--acc:#4f9dff;--acc2:#36d399;--purple:#9b8cff;--warn:#ffb454;--line:#2a3650;--red:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;font-size:14px}
+.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+.side{background:var(--panel);border-right:1px solid var(--line);padding:18px 16px}
+.side h3{font-size:13px;margin:0 0 10px;color:var(--sub);font-weight:600}
+.fgroup{margin-bottom:18px}
+.fgroup label{display:block;font-size:12px;color:var(--sub);margin-bottom:6px}
+select,input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+border-radius:8px;padding:7px 9px;font-size:13px}
+button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);border-color:var(--acc);color:#04121f;font-weight:600;width:100%}
+.sum{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px;font-size:12px;color:var(--sub);line-height:1.8}
+.sum b{color:var(--ink);font-size:13px}
+.main{padding:18px 20px}
+.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.top h1{font-size:19px;margin:0}
+.top .meta{font-size:12px;color:var(--sub)}
+.tools{display:flex;align-items:center;gap:12px}
+.auto{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.auto input{accent-color:var(--acc);cursor:pointer}
+.auto b{color:var(--acc);font-variant-numeric:tabular-nums;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+.kpi .k{font-size:11.5px;color:var(--sub)}
+.kpi .v{font-size:19px;font-weight:700;margin-top:5px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:11px;color:var(--sub);margin-top:2px}
+.kpi.a{border-left:3px solid var(--acc)}
+.kpi.b{border-left:3px solid var(--purple)}
+.kpi.c{border-left:3px solid var(--acc2)}
+.row2{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-bottom:14px}
+.row3{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.panel h2{font-size:13.5px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+.panel h2 small{color:var(--sub);font-weight:400;font-size:11px}
+canvas{max-height:300px}
+.tbl{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--sub);font-weight:600;position:sticky;top:0;background:var(--panel);cursor:pointer;z-index:1;user-select:none}
+th:hover{color:var(--ink)}
+th.sorted{color:var(--acc)}
+th.sorted::after{content:"▼";margin-left:4px;font-size:10px}
+th.sorted.asc::after{content:"▲"}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:11px;color:var(--sub)}
+.note{background:#1a2236;border:1px solid #34507e;border-left:3px solid var(--acc);border-radius:8px;
+padding:10px 12px;font-size:12px;color:#cdd9ee;line-height:1.7;margin-top:14px}
+.note b{color:#fff}
+.note code{background:#0c1322;padding:1px 5px;border-radius:4px;color:var(--warn)}
+.err{background:#2a1414;border:1px solid #7a2b2b;color:#ffb4b4;padding:10px;border-radius:8px;font-size:12px;margin-bottom:12px;display:none}
+.lg{display:flex;gap:12px;font-size:11px;color:var(--sub);margin-top:7px;flex-wrap:wrap}
+.sw{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+@media(max-width:1100px){.app{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(3,1fr)}.row2,.row3{grid-template-columns:1fr}}
+</style></head>
+<body><div class="app">
+
+<div class="side">
+  <div class="fgroup"><h3>工作台筛选</h3></div>
+  <div class="fgroup">
+    <label>时间范围</label>
+    <select id="fRange">
+      <option value="all">全部时间</option>
+      <option value="1">今天</option>
+      <option value="3">近 3 天</option>
+      <option value="7">近 7 天</option>
+      <option value="30">近 30 天</option>
+      <option value="90">近 90 天</option>
+    </select>
+  </div>
+  <div class="fgroup">
+    <label>模型（影响指标与趋势）</label>
+    <select id="fModel"><option value="">全部模型</option></select>
+  </div>
+  <div class="fgroup">
+    <label>排序依据</label>
+    <select id="fSort">
+      <option value="in">按输入 Token</option>
+      <option value="out">按输出 Token</option>
+      <option value="calls">按调用次数</option>
+      <option value="tot">按总 Token</option>
+    </select>
+  </div>
+  <div class="fgroup">
+    <label>任务名搜索</label>
+    <input type="text" id="fTask" placeholder="如：天门检察院">
+  </div>
+  <div class="fgroup"><button class="pri" id="btnReset">重置筛选</button></div>
+  <div class="sum">
+    <div>覆盖天数 <b id="sDays">—</b></div>
+    <div>模型 <b id="sModels">—</b> · 任务 <b id="sTasks">—</b></div>
+    <div>调用 <b id="sCalls">—</b></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="top">
+    <div>
+      <h1>WorkBuddy Token 工作台</h1>
+      <div class="meta">真实用量口径 · traces 每次调用 usage · 生成于 <span id="genTime">—</span> · <span id="modeTxt">—</span></div>
+    </div>
+    <div class="tools">
+      <label class="auto" for="autoReload"><input type="checkbox" id="autoReload" checked> 自动刷新 <b id="autoCount">—</b></label>
+      <button id="btnRefresh">刷新数据</button>
+    </div>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div class="kpis">
+    <div class="kpi a"><div class="k">总输入 Token</div><div class="v" id="kIn">—</div><div class="s" id="kInS">prompt</div></div>
+    <div class="kpi b"><div class="k">净输入（新增）</div><div class="v" id="kNet">—</div><div class="s" id="kNetS">输入 − 缓存命中</div></div>
+    <div class="kpi c"><div class="k">总输出 Token</div><div class="v" id="kOut">—</div><div class="s" id="kOutS">completion</div></div>
+    <div class="kpi"><div class="k">缓存命中率</div><div class="v" id="kHit">—</div><div class="s">cached / 输入</div></div>
+    <div class="kpi"><div class="k">调用次数</div><div class="v" id="kCalls">—</div><div class="s" id="kCallsS">—</div></div>
+    <div class="kpi"><div class="k">任务数</div><div class="v" id="kTasks">—</div><div class="s" id="kTasksS">—</div></div>
+    <div class="kpi"><div class="k">费用 · 官方计价</div><div class="v" id="kCost">—</div><div class="s" id="kCostS">仅公开价模型</div></div>
+    <div class="kpi"><div class="k">费用 · 情景估算</div><div class="v" id="kCost2">—</div><div class="s" id="kCost2S">全部按中端价折算</div></div>
+  </div>
+
+  <div class="row2">
+    <div class="panel">
+      <h2>模型消耗排名 <small>缓存 / 净输入 / 输出</small></h2>
+      <canvas id="chModel"></canvas>
+      <div class="lg"><span><span class="sw" style="background:#4f9dff"></span>缓存命中</span>
+        <span><span class="sw" style="background:#9b8cff"></span>净输入</span>
+        <span><span class="sw" style="background:#36d399"></span>输出</span></div>
+    </div>
+    <div class="panel">
+      <h2>消耗构成</h2>
+      <canvas id="chPie"></canvas>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:14px">
+    <h2>每日用量趋势 <small>堆叠：缓存 / 净输入 / 输出</small></h2>
+    <canvas id="chDay" style="max-height:250px"></canvas>
+  </div>
+
+  <div class="row3">
+    <div class="panel">
+      <h2>模型明细 <small>点列头排序</small></h2>
+      <div class="tbl"><table id="tModel"><thead><tr>
+        <th data-k="name" data-t="s">模型</th><th class="r" data-k="in">输入</th><th class="r" data-k="net">净输入</th><th class="r" data-k="out">输出</th><th class="r" data-k="cache">缓存</th><th class="r" data-k="calls">调用</th><th class="r" data-k="fee">费用¥</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="panel">
+      <h2>模型性能 <small>响应时间 / 吐字速度 / 峰值 RPM·TPM（全量口径）</small></h2>
+      <div class="tbl" style="max-height:420px"><table id="tPerf"><thead><tr>
+        <th data-k="name" data-t="s">模型</th><th class="r" data-k="calls">调用</th><th class="r" data-k="lat_med">中位延迟</th><th class="r" data-k="lat_p95">P95 延迟</th>
+        <th class="r" data-k="tps_med">吐字 tok/s</th><th class="r" data-k="avg_in">均输入</th><th class="r" data-k="avg_out">均输出</th><th class="r" data-k="cache_rate">缓存率</th>
+        <th class="r" data-k="peak_rpm">峰值 RPM</th><th class="r" data-k="peak_tpm">峰值 TPM</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="row2" style="margin-top:14px">
+    <div class="panel">
+      <h2>操作类型消耗排名 <small>按工具输出体量估算（撑大上下文的元凶）</small></h2>
+      <canvas id="chOps"></canvas>
+    </div>
+    <div class="panel">
+      <h2>操作明细</h2>
+      <div class="tbl" style="max-height:300px"><table id="tOps"><thead><tr>
+        <th data-k="name" data-t="s">操作</th><th class="r" data-k="calls">调用次数</th><th class="r" data-k="chars">输出字符</th><th class="r" data-k="est_tokens">估算 Token</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin:14px 0">
+    <h2>任务明细 <small>按任务主模型筛选 · 点列头排序</small></h2>
+    <div class="tbl" style="max-height:340px"><table id="tTask"><thead><tr>
+      <th data-k="name" data-t="s">任务</th><th data-k="model" data-t="s">主模型</th><th class="r" data-k="in">输入</th><th class="r" data-k="out">输出</th><th class="r" data-k="calls">调用</th><th class="r" data-k="fee">费用¥</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="note">
+    <b>口径说明：</b>输入＝<code>prompt_tokens</code>，输出＝<code>completion_tokens</code>，缓存命中＝<code>cached_tokens</code>（上下文中被复用的部分），
+    净输入＝输入 − 缓存（真正新增计费的输入）。模型名取自系统提示 <code>This conversation is powered by &lt;model&gt;</code>，
+    任务名由 trace 中的会话 UUID 关联 <code>workbuddy.db</code>。<b>注意：</b>traces 存在 100KB 硬截断；WorkBuddy 还会定期清理 traces 文件（实测单日减少 503 个）。本工作台自 2026-09-22 起对<b>已消失的文件归档保留</b>（见生成时间旁的「含归档 N 条」），使累计量<b>只增不减</b>——此前已被清掉的历史无法恢复。
+    更新数据：双击 <code>刷新用量看板.bat</code>，或等待自动刷新（每轮对话结束时触发，节流 5 分钟）。
+    <br><b>费用口径：</b>「官方计价」只对有公开价格的模型（DeepSeek V4/V4.1 Flash、Qwen3.8-Flash-Next 等）按厂商公开价折算；
+    本机自建 Qwen（192.168.2.11）与免费额度模型计 ¥0；<b>Hy3 / Hy4 / agnes / sensenova / spark / dots3 / intern 等为平台内置或未公开定价</b>，
+    其费用只在「情景估算」中按中端 flash 价（$0.30/$1.20 每百万、缓存 $0.03）折算，<b>仅供量级参考，非实际账单</b>。汇率按 1 USD = 7.10 CNY。
+    <br><b>模型识别口径（已 100% 归因）：</b>模型名取自每次调用的 <b>API 响应对象</b> <code>{"model":"custom-local:agnes-2.0-flash", "usage":{...}}</code>，
+    并按响应 <code>id</code> 精确去重——比系统提示里的标识句更权威，也不会被 100KB 截断影响。
+    （早期版本依赖 <code>This conversation is powered by &lt;model&gt;</code> 标识句，会漏掉 MCP 工具 / 终端标题 / 上下文摘要这类用精简提示的辅助调用，现已废弃该口径。）
+    <br><b>操作类型：</b>按 trace 中工具调用的输出体量折算（约 3.5 字符 ≈ 1 token），反映<b>哪些操作在撑大上下文</b>，从而推高输入 token。
+    <br><b>性能口径：</b>延迟＝该次 generation span 的墙钟耗时（<b>含首字前的预填充，非 TTFT</b>）；吐字速度＝输出 token ÷ 耗时；
+    峰值 RPM／TPM＝按响应 <code>created</code> 时间戳做 60 秒滑动窗口取最大值。性能为<b>全量口径</b>，不随左侧时间筛选变化。
+  </div>
+</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => n>=1e9?(n/1e9).toFixed(2)+'B' : n>=1e6?(n/1e6).toFixed(2)+'M' : n>=1e3?(n/1e3).toFixed(1)+'K' : (''+n);
+const C = {cache:'#4f9dff', net:'#9b8cff', out:'#36d399'};
+let D = null, charts = {model:null, pie:null, day:null, ops:null};
+let RATE = 7.10;
+window.onerror = function(msg, url, line){
+  const e = document.getElementById('err');
+  if(e){ e.style.display='block'; e.textContent = '脚本错误（第 '+line+' 行）：'+msg; }
+};
+
+function sumDaily(daily, days){
+  const r = {in:0,out:0,cache:0,calls:0,tot:0};
+  if(!daily) return r;
+  for(const k in daily){
+    if(days && !days.has(k)) continue;
+    const v = daily[k];
+    r.in += v.in||0; r.out += v.out||0; r.cache += v.cache||0; r.calls += v.calls||0; r.tot += v.tot||0;
+  }
+  return r;
+}
+
+function cutoffSet(days){
+  const all = (D.daily||[]).map(x=>x[0]);
+  if(!days || !all.length) return null;
+  const max = all[all.length-1];
+  const limit = new Date(max); limit.setDate(limit.getDate() - (days-1));
+  const s = new Set();
+  for(const d of all){ if(new Date(d) >= limit) s.add(d); }
+  return s;
+}
+
+/* —— 列头排序：点列头切换升/降，状态存入 localStorage（页面自动重载后仍保留）—— */
+const SORTS = (() => { try { return JSON.parse(localStorage.getItem('wb_sorts')||'{}'); } catch(e){ return {}; } })();
+const SORTS_DEFAULT = {tModel:{k:'in',d:-1}, tTask:{k:'in',d:-1}, tPerf:{k:'calls',d:-1}, tOps:{k:'est_tokens',d:-1}};
+function saveSorts(){ try{ localStorage.setItem('wb_sorts', JSON.stringify(SORTS)); }catch(e){} }
+function effSort(tid){
+  if(SORTS[tid]) return SORTS[tid];
+  if(tid==='tModel' || tid==='tTask') return {k: $('fSort').value, d:-1};
+  return SORTS_DEFAULT[tid];
+}
+function sortArr(arr, tid){
+  const s = effSort(tid);
+  if(!s || !s.k) return arr;
+  const str = arr.some(x => typeof x[s.k] === 'string');
+  arr.sort((a,b)=>{
+    let c;
+    if(str) c = String(a[s.k]||'').localeCompare(String(b[s.k]||''), 'zh');
+    else c = (Number(a[s.k])||0) - (Number(b[s.k])||0);
+    return c * (s.d===1 ? 1 : -1);
+  });
+  return arr;
+}
+function updateSortArrows(){
+  document.querySelectorAll('table[id^="t"] thead th').forEach(th=>{
+    th.classList.remove('sorted','asc');
+    const s = effSort(th.closest('table').id);
+    if(s && th.dataset.k === s.k){
+      th.classList.add('sorted');
+      if(s.d === 1) th.classList.add('asc');
+    }
+  });
+}
+function initSortHeaders(){
+  document.querySelectorAll('table[id^="t"] thead th').forEach(th=>{
+    if(!th.dataset.k) return;
+    th.onclick = ()=>{
+      const tid = th.closest('table').id, k = th.dataset.k;
+      const cur = effSort(tid);
+      const isStr = (th.dataset.t === 's');
+      const d = (cur.k === k) ? -cur.d : (isStr ? 1 : -1);
+      SORTS[tid] = {k, d};
+      saveSorts();
+      render();
+    };
+  });
+}
+
+function compute(){
+  const range = $('fRange').value;
+  const days = range === 'all' ? null : cutoffSet(parseInt(range,10));
+  const modelF = $('fModel').value;
+  const sortK = $('fSort').value;
+  const taskQ = $('fTask').value.trim().toLowerCase();
+
+  RATE = (D.cost && D.cost.usd_cny) || 7.10;
+  const priceCost = (p, tin, tc, tout) => {
+    if(!p) return {off:0, sc:0};
+    const net = Math.max(0, tin - tc);
+    const usd = (net/1e6)*p.in + (tc/1e6)*p.cache + (tout/1e6)*p.out;
+    if(p.kind === 'local' || p.kind === 'free') return {off:0, sc:0};
+    if(p.kind === 'official') return {off:usd*RATE, sc:usd*RATE};
+    return {off:0, sc:usd*RATE};
+  };
+
+  let models = (D.models||[]).map(m => {
+    const s = sumDaily(m.daily, days);
+    const c = priceCost(m.price, s.in, s.cache, s.out);
+    return {name:m.name, price:m.price, in:s.in, out:s.out, cache:s.cache, calls:s.calls, tot:s.tot, cost:c.off, cost2:c.sc};
+  });
+  models = models.filter(m => m.tot > 0 || m.calls > 0);
+  if(modelF) models = models.filter(m => m.name === modelF);
+  models.sort((a,b) => (b[sortK]||0) - (a[sortK]||0));
+
+  let tasks = (D.tasks||[]).map(t => {
+    const s = sumDaily(t.daily, days);
+    const c = priceCost(t.price, s.in, s.cache, s.out);
+    return {name:t.name, model:t.model, in:s.in, out:s.out, cache:s.cache, calls:s.calls, tot:s.tot,
+            updated:t.updated, cost:c.off, cost2:c.sc};
+  });
+  tasks = tasks.filter(t => t.tot > 0 || t.calls > 0);
+  if(modelF) tasks = tasks.filter(t => t.model === modelF);
+  if(taskQ) tasks = tasks.filter(t => t.name.toLowerCase().includes(taskQ));
+  tasks.sort((a,b) => (b[sortK]||0) - (a[sortK]||0));
+
+  const tot = models.reduce((a,m)=>({in:a.in+m.in, out:a.out+m.out, cache:a.cache+m.cache, calls:a.calls+m.calls,
+                                     tot:a.tot+m.tot, cost:a.cost+m.cost, cost2:a.cost2+m.cost2}),
+                            {in:0,out:0,cache:0,calls:0,tot:0,cost:0,cost2:0});
+  const dayList = (D.daily||[]).filter(x => !days || days.has(x[0]));
+  return {models, tasks, tot, days, dayList, modelF};
+}
+
+function render(){
+  const r = compute();
+  const t = r.tot;
+  r.models.forEach(m=>{ m.net = Math.max(0, m.in - m.cache); m.fee = m.cost > 0 ? m.cost : m.cost2; });
+  r.tasks.forEach(x=>{ x.fee = x.cost > 0 ? x.cost : x.cost2; });
+  sortArr(r.models, 'tModel');
+  sortArr(r.tasks, 'tTask');
+  const net = Math.max(0, t.in - t.cache);
+  $('kIn').textContent = fmt(t.in);
+  $('kNet').textContent = fmt(net);
+  $('kOut').textContent = fmt(t.out);
+  $('kHit').textContent = t.in ? (t.cache/t.in*100).toFixed(1)+'%' : '—';
+  $('kCalls').textContent = t.calls.toLocaleString();
+  $('kTasks').textContent = r.tasks.length;
+  $('kInS').textContent = '缓存 '+fmt(t.cache);
+  $('kNetS').textContent = t.in ? ((net/t.in*100).toFixed(1)+'% 为新增') : '输入 − 缓存命中';
+  $('kOutS').textContent = t.tot ? ((t.out/t.tot*100).toFixed(2)+'% 占比') : 'completion';
+  $('kCallsS').textContent = t.calls ? ('均输入 '+Math.round(t.in/Math.max(1,t.calls)).toLocaleString()) : '—';
+  $('kTasksS').textContent = r.models.length + ' 个模型在用';
+  $('kCost').textContent = '¥' + t.cost.toFixed(1);
+  $('kCost2').textContent = '¥' + t.cost2.toFixed(1);
+  $('kCostS').textContent = '汇率 1USD=' + RATE;
+  $('kCost2S').textContent = '含未公开价模型';
+
+  $('sDays').textContent = r.dayList.length;
+  $('sModels').textContent = r.models.length;
+  $('sTasks').textContent = r.tasks.length;
+  $('sCalls').textContent = t.calls.toLocaleString();
+
+  const top = r.models.slice(0,12);
+  const mdata = {labels: top.map(m=>m.name), datasets:[
+    {label:'缓存', data: top.map(m=>m.cache), backgroundColor:C.cache},
+    {label:'净输入', data: top.map(m=>Math.max(0,m.in-m.cache)), backgroundColor:C.net},
+    {label:'输出', data: top.map(m=>m.out), backgroundColor:C.out}]};
+  if(charts.model){ charts.model.data = mdata; charts.model.update('none'); }
+  else charts.model = new Chart($('chModel'), {type:'bar', data:mdata, options:{indexAxis:'y', responsive:true,
+    plugins:{legend:{display:false}},
+    scales:{x:{stacked:true, ticks:{color:'#9fb0c8',callback:v=>fmt(v)}, grid:{color:'#2a3650'}},
+            y:{stacked:true, ticks:{color:'#9fb0c8',font:{size:10}}, grid:{color:'#2a3650'}}}}});
+
+  const pdata = {labels:['缓存命中','净输入','输出'], datasets:[{data:[t.cache, net, t.out],
+    backgroundColor:[C.cache, C.net, C.out], borderWidth:0}]};
+  if(charts.pie){ charts.pie.data = pdata; charts.pie.update('none'); }
+  else charts.pie = new Chart($('chPie'), {type:'doughnut', data:pdata, options:{responsive:true, cutout:'62%',
+    plugins:{legend:{position:'bottom', labels:{color:'#9fb0c8', boxWidth:10}}}}});
+
+  const ddata = {labels: r.dayList.map(x=>x[0]), datasets:[
+    {label:'缓存', data:r.dayList.map(x=>x[3]), backgroundColor:'rgba(79,157,255,.45)', borderColor:C.cache, fill:true, tension:.25, pointRadius:0, borderWidth:1.2},
+    {label:'净输入', data:r.dayList.map(x=>Math.max(0,x[1]-x[3])), backgroundColor:'rgba(155,140,255,.45)', borderColor:C.net, fill:true, tension:.25, pointRadius:0, borderWidth:1.2},
+    {label:'输出', data:r.dayList.map(x=>x[2]), backgroundColor:'rgba(54,211,153,.45)', borderColor:C.out, fill:true, tension:.25, pointRadius:0, borderWidth:1.2}]};
+  if(charts.day){ charts.day.data = ddata; charts.day.update('none'); }
+  else charts.day = new Chart($('chDay'), {type:'line', data:ddata, options:{responsive:true,
+    plugins:{legend:{labels:{color:'#9fb0c8', boxWidth:10}}},
+    scales:{x:{stacked:true, ticks:{color:'#9fb0c8',maxTicksLimit:14,font:{size:10}}, grid:{color:'#2a3650'}},
+            y:{stacked:true, ticks:{color:'#9fb0c8',callback:v=>fmt(v)}, grid:{color:'#2a3650'}}}}});
+
+  const mt = $('tModel').querySelector('tbody'); mt.innerHTML='';
+  r.models.forEach(m=>{
+    const tr=document.createElement('tr');
+    const fee = m.cost > 0 ? '¥'+m.cost.toFixed(1) : '~¥'+m.cost2.toFixed(1);
+    tr.innerHTML = `<td>${m.name}</td><td class="r">${fmt(m.in)}</td><td class="r">${fmt(Math.max(0,m.in-m.cache))}</td>
+      <td class="r">${fmt(m.out)}</td><td class="r">${fmt(m.cache)}</td><td class="r">${m.calls}</td><td class="r">${fee}</td>`;
+    mt.appendChild(tr);
+  });
+
+  const tt = $('tTask').querySelector('tbody'); tt.innerHTML='';
+  r.tasks.slice(0,400).forEach(t=>{
+    const upd = t.updated ? new Date(t.updated).toLocaleDateString('zh-CN') : '';
+    const tr=document.createElement('tr');
+    const fee = t.cost > 0 ? '¥'+t.cost.toFixed(1) : '~¥'+t.cost2.toFixed(1);
+    tr.innerHTML = `<td>${t.name}${upd?` <span class="tag">${upd}</span>`:''}</td>
+      <td><span class="tag">${t.model||'—'}</span></td><td class="r">${fmt(t.in)}</td>
+      <td class="r">${fmt(t.out)}</td><td class="r">${t.calls}</td><td class="r">${fee}</td>`;
+    tt.appendChild(tr);
+  });
+
+  // 模型性能（全量口径）
+  const pt = $('tPerf').querySelector('tbody'); pt.innerHTML='';
+  const perfRows = sortArr((D.models||[]).filter(m=>m.perf).map(m=>Object.assign({name:m.name}, m.perf)), 'tPerf');
+  perfRows.forEach(x=>{
+    const p = x, tr = document.createElement('tr');
+    const sec = ms => (ms/1000).toFixed(1)+'s';
+    tr.innerHTML = `<td>${x.name}</td><td class="r">${p.calls}</td>
+      <td class="r">${sec(p.lat_med)}</td><td class="r">${sec(p.lat_p95)}</td>
+      <td class="r">${p.tps_med}</td><td class="r">${fmt(p.avg_in)}</td>
+      <td class="r">${fmt(p.avg_out)}</td><td class="r">${p.cache_rate}%</td>
+      <td class="r">${p.peak_rpm}</td><td class="r">${fmt(p.peak_tpm)}</td>`;
+    pt.appendChild(tr);
+  });
+
+  // 操作类型
+  const opsAll = sortArr((D.ops||[]).slice(), 'tOps');
+  const ops = opsAll.slice(0,14);
+  const odata = {labels: ops.map(o=>o.name), datasets:[{label:'估算 Token', data: ops.map(o=>o.est_tokens), backgroundColor:'#ffb454', borderRadius:4}]};
+  if(charts.ops){ charts.ops.data = odata; charts.ops.update('none'); }
+  else charts.ops = new Chart($('chOps'), {type:'bar', data:odata, options:{indexAxis:'y', responsive:true,
+    plugins:{legend:{display:false}},
+    scales:{x:{ticks:{color:'#9fb0c8',callback:v=>fmt(v)}, grid:{color:'#2a3650'}},
+            y:{ticks:{color:'#9fb0c8',font:{size:10}}, grid:{color:'#2a3650'}}}}});
+  const ot = $('tOps').querySelector('tbody'); ot.innerHTML='';
+  opsAll.forEach(o=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML = `<td>${o.name}</td><td class="r">${o.calls.toLocaleString()}</td>
+      <td class="r">${fmt(o.chars)}</td><td class="r">${fmt(o.est_tokens)}</td>`;
+    ot.appendChild(tr);
+  });
+  updateSortArrows();
+}
+
+function initModels(){
+  const sel = $('fModel');
+  const names = [...new Set((D.models||[]).map(m=>m.name))].sort();
+  names.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+}
+
+function boot(d){
+  D = d;
+  RATE = (d.cost && d.cost.usd_cny) || 7.10;
+  var _arc = (d.scan && d.scan.archived_traces) || 0;
+  $('genTime').textContent = d.generated_at + (_arc ? ' · 含归档 ' + _arc + ' 条' : '');
+  initModels();
+  render();
+}
+
+async function load(){
+  try{
+    const res = await fetch('/api/usage');
+    const d = await res.json();
+    if(d.error){ $('err').style.display='block'; $('err').textContent='服务错误：'+d.error; return; }
+    $('modeTxt').textContent = '实时服务';
+    $('btnRefresh').onclick = ()=>load();
+    boot(d);
+  }catch(e){ $('err').style.display='block'; $('err').textContent='取数失败：'+e; }
+}
+
+['fRange','fModel'].forEach(id=>{ $(id).onchange = render; });
+$('fSort').onchange = ()=>{ delete SORTS.tModel; delete SORTS.tTask; saveSorts(); render(); };
+$('fTask').oninput = render;
+$('btnReset').onclick = ()=>{ $('fRange').value='all'; $('fModel').value=''; $('fSort').value='in'; $('fTask').value='';
+  delete SORTS.tModel; delete SORTS.tTask; saveSorts(); render(); };
+initSortHeaders();
+
+/* —— 自动刷新：静态页每 10 分钟重新载入一次，配合系统计划任务同步重新生成数据 —— */
+var AUTO_SEC = 10 * 60, autoLeft = AUTO_SEC, autoTimer = null;
+function autoTick(){
+  var cb = $('autoReload');
+  if(!cb.checked){ $('autoCount').textContent = '已暂停'; return; }
+  var m = Math.floor(autoLeft/60), s = autoLeft%60;
+  $('autoCount').textContent = m + ':' + (s<10?'0':'') + s;
+  if(autoLeft <= 0){ location.reload(); return; }
+  autoLeft--;
+}
+function autoStart(){
+  if(autoTimer) clearInterval(autoTimer);
+  autoLeft = AUTO_SEC;
+  $('autoReload').onchange = function(){ if(this.checked) autoLeft = AUTO_SEC; autoTick(); };
+  autoTick();
+  autoTimer = setInterval(autoTick, 1000);
+}
+
+if (window.__DATA__) {
+  $('modeTxt').textContent = '静态页面 · 每 10 分钟自动刷新';
+  $('btnRefresh').textContent = '立即刷新页面';
+  $('btnRefresh').onclick = ()=>location.reload();
+  autoStart();
+  boot(window.__DATA__);
+} else {
+  $('autoReload').checked = false;
+  $('autoCount').textContent = '已暂停';
+  load();
+}
+</script></body></html>
